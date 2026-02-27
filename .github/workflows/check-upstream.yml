@@ -2,15 +2,17 @@ name: Check upstream quickjs-ng
 
 on:
   schedule:
-    # Check daily at 06:00 UTC
-    - cron: "0 6 * * *"
+    # Check monthly on the 1st at 06:00 UTC
+    - cron: "0 6 1 * *"
   workflow_dispatch:
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-depth: 0
@@ -46,7 +48,7 @@ jobs:
 
       - name: Trigger build
         if: steps.check.outputs.needed == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             await github.rest.actions.createWorkflowDispatch({
