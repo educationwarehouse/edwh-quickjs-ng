@@ -21,7 +21,8 @@ tag.
 
 ```bash
 git tag v0.14.0.1
-git push origin v0.14.0.1
+git push
+git push --tags
 ```
 
 This triggers `.github/workflows/build.yml`, which builds cross-platform wheels
