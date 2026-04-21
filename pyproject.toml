@@ -1,8 +1,11 @@
 [project]
-name = "quickjs-ng"
+name = "edwh-quickjs-ng"
 version = "0.14.0.1"
 description = "Thin Python wrapper of quickjs-ng"
-authors = [{ name = "Ganesh Viswanathan", email = "dev@genotrance.com" }]
+authors = [
+    { name = "Ganesh Viswanathan", email = "dev@genotrance.com" },
+    { name = "Robin van der Noord", email = "robin.vdn@educationwarehouse.nl" },
+]
 readme = "README.md"
 keywords = ['quickjs', 'javascript', 'embedding']
 requires-python = ">=3.10,<4.0"
@@ -19,8 +22,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/genotrance/quickjs-ng"
-Repository = "https://github.com/genotrance/quickjs-ng"
+Homepage = "https://github.com/educationwarehouse/edwh-quickjs-ng"
+Repository = "https://github.com/educationwarehouse/edwh-quickjs-ng"
 
 [dependency-groups]
 dev = [
