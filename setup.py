@@ -1,5 +1,6 @@
 import sys
 import sysconfig as _sc
+from pathlib import Path
 
 from setuptools import Extension, setup
 
@@ -33,18 +34,9 @@ def get_c_sources(include_headers=False):
         "upstream-quickjs/quickjs.c",
     ]
     if include_headers:
-        sources += [
-            "upstream-quickjs/cutils.h",
-            "upstream-quickjs/dtoa.h",
-            "upstream-quickjs/libregexp-opcode.h",
-            "upstream-quickjs/libregexp.h",
-            "upstream-quickjs/libunicode-table.h",
-            "upstream-quickjs/libunicode.h",
-            "upstream-quickjs/list.h",
-            "upstream-quickjs/quickjs-atom.h",
-            "upstream-quickjs/quickjs-opcode.h",
-            "upstream-quickjs/quickjs.h",
-        ]
+        # Include every upstream header in sdist so wheel builds from source
+        # distributions don't break when quickjs-ng adds new generated headers.
+        sources += sorted(str(path) for path in Path("upstream-quickjs").glob("*.h"))
     return sources
 
 
