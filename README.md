@@ -1,5 +1,7 @@
 # edwh-quickjs-ng
 
+Fork of quickjs-ng to fix `Unknown quickjs tag: -6` error; also bump to latest upstream version (0.14.0)
+
 ```bash
 git clone --recurse-submodules git@github.com:educationwarehouse/edwh-quickjs-ng.git
 cd edwh-quickjs-ng/
