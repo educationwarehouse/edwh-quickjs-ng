@@ -2,96 +2,26 @@ name: Build wheels
 
 on:
   push:
-    branches:
-      - main
-  workflow_call:
-    inputs:
-      upstream_tag:
-        description: "Upstream quickjs-ng tag to build against"
-        required: true
-        type: string
-  workflow_dispatch:
-    inputs:
-      upstream_tag:
-        description: "Upstream quickjs-ng tag to build against (e.g. v0.12.1)"
-        required: true
-        type: string
+    tags:
+      - "v*"
 
 jobs:
-  setup:
+  build-sdist:
     runs-on: ubuntu-latest
-    outputs:
-      upstream_tag: ${{ steps.resolve.outputs.upstream_tag }}
-      version: ${{ steps.resolve.outputs.version }}
-      publish: ${{ steps.resolve.outputs.publish }}
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - name: Resolve tag and version
-        id: resolve
+      - name: Verify tag matches project version
         shell: bash
         run: |
-          if [ -n "${{ inputs.upstream_tag }}" ]; then
-            # Called from workflow_call or workflow_dispatch with explicit tag
-            TAG="${{ inputs.upstream_tag }}"
-            cd upstream-quickjs
-            git fetch --tags
-            git checkout "$TAG"
-            cd ..
-          else
-            # Triggered by push — detect tag from submodule
-            cd upstream-quickjs
-            git fetch --tags
-            TAG=$(git tag --points-at HEAD --sort=-v:refname | head -1)
-            if [ -z "$TAG" ]; then
-              echo "No tag found at submodule HEAD, using latest tag"
-              TAG=$(git tag --sort=-v:refname | head -1)
-            fi
-            cd ..
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION=$(python3 -c "import re, pathlib; print(re.search(r'^version = \"(.+?)\"$', pathlib.Path('pyproject.toml').read_text(), re.M).group(1))")
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag version ($TAG) does not match pyproject version ($VERSION)"
+            exit 1
           fi
-
-          UPSTREAM_VER="${TAG#v}"
-          CURRENT_VER=$(python3 -c "
-          import re, pathlib
-          text = pathlib.Path('pyproject.toml').read_text()
-          m = re.search(r'version = \"(.+?)\"', text)
-          print(m.group(1))
-          ")
-          CURRENT_BASE="${CURRENT_VER%.*}"
-          if [ "$CURRENT_BASE" = "$UPSTREAM_VER" ]; then
-            VERSION="$CURRENT_VER"
-          else
-            VERSION="${UPSTREAM_VER}.1"
-          fi
-
-          PUBLISH="false"
-          if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ github.event_name }}" = "workflow_call" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            PUBLISH="true"
-          fi
-
-          echo "upstream_tag=$TAG" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "publish=$PUBLISH" >> $GITHUB_OUTPUT
-
-  build-sdist:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-
-      - name: Checkout upstream tag
-        run: |
-          cd upstream-quickjs
-          git fetch --tags
-          git checkout ${{ needs.setup.outputs.upstream_tag }}
-
-      - name: Set version
-        run: |
-          sed -i "s/^version = \".*\"/version = \"${{ needs.setup.outputs.version }}\"/" pyproject.toml
 
       - name: Build sdist
         run: pipx run build --sdist
@@ -102,7 +32,6 @@ jobs:
           path: dist/*.tar.gz
 
   build-wheels:
-    needs: setup
     name: Build ${{ matrix.os }} ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -135,17 +64,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Checkout upstream tag
-        run: |
-          cd upstream-quickjs
-          git fetch --tags
-          git checkout ${{ needs.setup.outputs.upstream_tag }}
-
-      - name: Set version
-        shell: bash
-        run: |
-          sed -i.bak "s/^version = \".*\"/version = \"${{ needs.setup.outputs.version }}\"/" pyproject.toml
-
       - name: Set up QEMU
         if: matrix.arch == 'aarch64'
         uses: docker/setup-qemu-action@v3
@@ -165,17 +83,11 @@ jobs:
           path: wheelhouse/*.whl
 
   publish:
-    needs: [setup, build-sdist, build-wheels]
-    if: needs.setup.outputs.publish == 'true'
+    needs: [build-sdist, build-wheels]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: write
     steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
       - uses: actions/download-artifact@v8
         with:
           path: dist
@@ -183,15 +95,3 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-
-      - name: Create and push tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          TAG="v${{ needs.setup.outputs.version }}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists, skipping."
-          else
-            git tag "$TAG"
-            git push origin "$TAG"
-          fi
